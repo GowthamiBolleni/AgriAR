@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriAR: Smart Farming Assistant</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (for the React-like icons, though we'll use Font Awesome for consistency where possible) -->
+    <!-- Note: Lucide-react is a React component library. For plain HTML, we would typically use inline SVGs or a different icon library.
+         For this conversion, we'll use Font Awesome for some, and generic placeholders where Lucide-react specific icons might be harder to replicate directly. -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles to enhance Tailwind or add specific behaviors */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .tab-button.active {
+            font-weight: 600;
+        }
+        .camera-container video {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-lg */
+        }
+        .camera-container canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-lg */
+        }
+        .hidden {
+            display: none;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #22c55e; /* Green */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .mock-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .mock-modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+    <!-- Header -->
+    <div class="bg-green-600 text-white p-4 rounded-b-lg shadow-md">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-2xl font-bold flex items-center">
+                <i class="fas fa-leaf mr-2"></i>
+                AgriAR - Smart Farming Assistant
+            </h1>
+            <p class="text-green-100 mt-1">
+                AI-powered crop and disease analysis for sustainable farming
+            </p>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="bg-white shadow-sm rounded-lg mx-4 md:mx-auto mt-4 max-w-4xl">
+        <div class="max-w-4xl mx-auto">
+            <nav class="flex space-x-2 sm:space-x-4 p-2 sm:p-4 overflow-x-auto">
+                <button
+                    id="tab-soil"
+                    class="tab-button flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors bg-green-100 text-green-800 whitespace-nowrap"
+                >
+                    <i class="fas fa-seedling mr-1 sm:mr-2 text-green-600"></i>
+                    Soil Analysis
+                </button>
+                <button
+                    id="tab-disease"
+                    class="tab-button flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors text-gray-600 hover:bg-gray-100 whitespace-nowrap"
+                >
+                    <i class="fas fa-bug mr-1 sm:mr-2 text-red-600"></i>
+                    Disease Detection
+                </button>
+                <button
+                    id="tab-analytics"
+                    class="tab-button flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors text-gray-600 hover:bg-gray-100 whitespace-nowrap"
+                >
+                    <i class="fas fa-chart-bar mr-1 sm:mr-2 text-blue-600"></i>
+                    Analytics
+                </button>
+                <button
+                    id="tab-community"
+                    class="tab-button flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors text-gray-600 hover:bg-gray-100 whitespace-nowrap"
+                >
+                    <i class="fas fa-users mr-1 sm:mr-2 text-purple-600"></i>
+                    Community
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto p-4">
+        <!-- Soil Analysis / Disease Detection Section -->
+        <div id="analysis-section" class="bg-white rounded-lg shadow-lg p-6">
+            <h2 id="analysis-section-title" class="text-xl font-bold mb-4 flex items-center">
+                <i class="fas fa-seedling mr-2 text-green-600" id="analysis-section-icon"></i>
+                Soil Analysis
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <button
+                    id="upload-image-btn"
+                    class="flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition-colors"
+                >
+                    <i class="fas fa-upload mr-2 text-gray-600"></i>
+                    Upload Image
+                </button>
+                
+                <button
+                    id="use-camera-btn"
+                    class="flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors"
+                >
+                    <i class="fas fa-camera mr-2 text-gray-600"></i>
+                    Use Camera
+                </button>
+            </div>
+            
+            <input
+                type="file"
+                id="file-input"
+                accept="image/*"
+                class="hidden"
+            />
+            
+            <div class="camera-container mb-4 text-center">
+                <video
+                    id="video-feed"
+                    class="w-full max-w-md mx-auto rounded-lg"
+                    style="display: none;"
+                    autoplay
+                    playsinline
+                ></video>
+                <canvas
+                    id="canvas-capture"
+                    class="hidden"
+                ></canvas>
+                <button
+                    id="capture-photo-btn"
+                    class="hidden bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors mt-4"
+                >
+                    Capture Photo
+                </button>
+            </div>
+            
+            <div id="loading-indicator" class="hidden text-center py-8">
+                <div class="loading-spinner mx-auto"></div>
+                <p class="mt-4 text-gray-600">Analyzing image...</p>
+            </div>
+            
+            <!-- Location display removed -->
+
+            <!-- Analysis Results (Soil/Disease) -->
+            <div id="analysis-results-display" class="hidden">
+                <!-- Content will be injected here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Analytics Dashboard Section -->
+        <div id="analytics-section" class="hidden space-y-6">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-chart-bar mr-2 text-blue-600"></i>
+                    Analytics Dashboard
+                </h3>
+                
+                <div id="analytics-counts" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Counts will be injected here -->
+                </div>
+                
+                <div id="recent-activities" class="mt-6">
+                    <h4 class="font-semibold mb-3 flex items-center">
+                        <i class="fas fa-clock mr-2 text-gray-600"></i>
+                        Recent Activities
+                    </h4>
+                    <div id="recent-activities-list" class="space-y-2">
+                        <!-- Activities will be injected here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="disease-map-section" class="hidden bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-map-marked-alt mr-2 text-red-600"></i>
+                    Disease Outbreak Map
+                </h3>
+                <div id="disease-outbreaks-list" class="grid gap-4">
+                    <!-- Outbreaks will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Community Features Section -->
+        <div id="community-section" class="hidden space-y-6">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-users mr-2 text-blue-600"></i>
+                    Community Features
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
+                            <i class="fab fa-whatsapp mr-2"></i>
+                            WhatsApp Integration
+                        </h4>
+                        <p class="text-sm text-gray-600 mb-3">
+                            Get farming advice directly on WhatsApp. Send your queries and receive instant responses.
+                        </p>
+                        <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors">
+                            Connect WhatsApp
+                        </button>
+                    </div>
+                    
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-purple-800 mb-2 flex items-center">
+                            <i class="fas fa-globe mr-2"></i>
+                            Multi-Language Support
+                        </h4>
+                        <p class="text-sm text-gray-600 mb-3">
+                            Access farming guidance in your preferred language.
+                        </p>
+                        <select id="language-select"
+                            class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                            <option value="en">English</option>
+                            <option value="hi">हिंदी</option>
+                            <option value="te">తెలుగు</option>
+                            <option value="ta">தமிழ்</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-6 bg-green-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-green-800 mb-2 flex items-center">
+                        <i class="fas fa-microphone-alt mr-2"></i>
+                        Voice Assistant
+                    </h4>
+                    <p class="text-sm text-gray-600 mb-3">
+                        Ask questions about farming using voice commands in your local language.
+                    </p>
+                    <button
+                        id="voice-recording-btn"
+                        class="flex items-center px-4 py-2 rounded transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                        <i class="fas fa-microphone mr-2"></i>
+                        Start Voice Query
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mock Alert/Modal -->
+    <div id="mock-alert-modal" class="mock-modal hidden">
+        <div class="mock-modal-content">
+            <p id="mock-alert-message" class="mb-4 text-lg"></p>
+            <button id="mock-alert-close-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Close</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const analysisSection = document.getElementById('analysis-section');
+            const analyticsSection = document.getElementById('analytics-section');
+            const communitySection = document.getElementById('community-section');
+
+            const analysisSectionTitle = document.getElementById('analysis-section-title');
+            const analysisSectionIcon = document.getElementById('analysis-section-icon');
+
+            const uploadImageBtn = document.getElementById('upload-image-btn');
+            const useCameraBtn = document.getElementById('use-camera-btn');
+            const fileInput = document.getElementById('file-input');
+            const videoFeed = document.getElementById('video-feed');
+            const canvasCapture = document.getElementById('canvas-capture');
+            const capturePhotoBtn = document.getElementById('capture-photo-btn');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            // Removed locationDisplay, latitudeSpan, longitudeSpan
+            const analysisResultsDisplay = document.getElementById('analysis-results-display');
+
+            const analyticsCountsDiv = document.getElementById('analytics-counts');
+            const recentActivitiesList = document.getElementById('recent-activities-list');
+            const diseaseMapSection = document.getElementById('disease-map-section');
+            const diseaseOutbreaksList = document.getElementById('disease-outbreaks-list');
+
+            const languageSelect = document.getElementById('language-select');
+            const voiceRecordingBtn = document.getElementById('voice-recording-btn');
+            const mockAlertModal = document.getElementById('mock-alert-modal');
+            const mockAlertMessage = document.getElementById('mock-alert-message');
+            const mockAlertCloseBtn = document.getElementById('mock-alert-close-btn');
+
+            // --- State Variables (mimicking React useState) ---
+            let activeTab = 'soil';
+            let analysisResult = null;
+            let loading = false;
+            // Removed location state variable
+            let analytics = null;
+            let diseaseMap = null;
+            let voiceRecording = false;
+            let selectedLanguage = 'en';
+
+            // --- Helper Functions to Update UI based on State ---
+            const updateActiveTabUI = () => {
+                tabButtons.forEach(button => {
+                    button.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-purple-100', 'text-purple-800');
+                    button.classList.add('text-gray-600', 'hover:bg-gray-100');
+                });
+
+                let currentTabButton;
+                if (activeTab === 'soil') {
+                    currentTabButton = document.getElementById('tab-soil');
+                    analysisSectionTitle.textContent = 'Soil Analysis';
+                    analysisSectionIcon.className = 'fas fa-seedling mr-2 text-green-600';
+                    analysisSection.classList.remove('hidden');
+                    analyticsSection.classList.add('hidden');
+                    communitySection.classList.add('hidden');
+                } else if (activeTab === 'disease') {
+                    currentTabButton = document.getElementById('tab-disease');
+                    analysisSectionTitle.textContent = 'Disease Detection';
+                    analysisSectionIcon.className = 'fas fa-bug mr-2 text-red-600';
+                    analysisSection.classList.remove('hidden');
+                    analyticsSection.classList.add('hidden');
+                    communitySection.classList.add('hidden');
+                } else if (activeTab === 'analytics') {
+                    currentTabButton = document.getElementById('tab-analytics');
+                    analysisSection.classList.add('hidden');
+                    analyticsSection.classList.remove('hidden');
+                    communitySection.classList.add('hidden');
+                    renderAnalyticsDashboard(); // Re-render analytics when tab changes
+                } else if (activeTab === 'community') {
+                    currentTabButton = document.getElementById('tab-community');
+                    analysisSection.classList.add('hidden');
+                    analyticsSection.classList.add('hidden');
+                    communitySection.classList.remove('hidden');
+                }
+
+                if (currentTabButton) {
+                    currentTabButton.classList.remove('text-gray-600', 'hover:bg-gray-100');
+                    if (activeTab === 'soil') currentTabButton.classList.add('bg-green-100', 'text-green-800');
+                    else if (activeTab === 'disease') currentTabButton.classList.add('bg-red-100', 'text-red-800');
+                    else if (activeTab === 'analytics') currentTabButton.classList.add('bg-blue-100', 'text-blue-800');
+                    else if (activeTab === 'community') currentTabButton.classList.add('bg-purple-100', 'text-purple-800');
+                }
+            };
+
+            const setLoadingState = (isLoading) => {
+                loading = isLoading;
+                if (loading) {
+                    loadingIndicator.classList.remove('hidden');
+                    analysisResultsDisplay.classList.add('hidden');
+                } else {
+                    loadingIndicator.classList.add('hidden');
+                }
+            };
+
+            // Removed updateLocationUI function
+
+            const showMockAlert = (message) => {
+                mockAlertMessage.textContent = message;
+                mockAlertModal.classList.remove('hidden');
+            };
+
+            const hideMockAlert = () => {
+                mockAlertModal.classList.add('hidden');
+            };
+
+            // --- Initial Data Loading (mimicking useEffect) ---
+            const initApp = async () => {
+                // Removed geolocation API call
+                
+                // Load analytics data
+                await loadAnalytics();
+                await loadDiseaseMap();
+                updateActiveTabUI(); // Initial tab setup
+            };
+
+            const loadAnalytics = async () => {
+                try {
+                    // Mock API call for analytics dashboard
+                    // const response = await fetch('http://localhost:8000/analytics/dashboard');
+                    // const data = await response.json();
+                    const data = {
+                        analysis_counts: {
+                            soil_analysis: 1250,
+                            disease_analysis: 870,
+                            recent_activities: 25
+                        },
+                        recent_activities: [
+                            { type: 'soil_analysis', location: 'Hyderabad', timestamp: new Date().toISOString() },
+                            { type: 'disease_detection', location: 'Bengaluru', timestamp: new Date(Date.now() - 3600000).toISOString() },
+                            { type: 'soil_analysis', location: 'Chennai', timestamp: new Date(Date.now() - 7200000).toISOString() },
+                            { type: 'disease_detection', location: 'Delhi', timestamp: new Date(Date.now() - 10800000).toISOString() },
+                            { type: 'soil_analysis', location: 'Mumbai', timestamp: new Date(Date.now() - 14400000).toISOString() },
+                        ]
+                    };
+                    analytics = data;
+                    renderAnalyticsDashboard();
+                } catch (error) {
+                    console.error('Error loading analytics:', error);
+                }
+            };
+
+            const loadDiseaseMap = async () => {
+                try {
+                    // Mock API call for community disease map
+                    // const response = await fetch('http://localhost:8000/community/disease-map');
+                    // const data = await response.json();
+                    const data = {
+                        disease_outbreaks: [
+                            { disease: 'Leaf Blight', crop: 'Rice', location: { latitude: 17.4, longitude: 78.5 }, timestamp: new Date().toISOString() },
+                            { disease: 'Powdery Mildew', crop: 'Wheat', location: { latitude: 17.3, longitude: 78.6 }, timestamp: new Date(Date.now() - 86400000).toISOString() },
+                            { disease: 'Rust', crop: 'Corn', location: { latitude: 17.5, longitude: 78.4 }, timestamp: new Date(Date.now() - 172800000).toISOString() },
+                        ]
+                    };
+                    diseaseMap = data;
+                    renderDiseaseMap();
+                } catch (error) {
+                    console.error('Error loading disease map:', error);
+                }
+            };
+
+            // --- Camera & File Handling ---
+            const captureFromCamera = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoFeed.srcObject = stream;
+                    videoFeed.style.display = 'block';
+                    capturePhotoBtn.classList.remove('hidden');
+                    uploadImageBtn.classList.add('hidden'); // Hide upload button when camera is active
+                    useCameraBtn.classList.add('hidden'); // Hide use camera button
+                } catch (error) {
+                    console.error('Error accessing camera:', error);
+                    showMockAlert('Could not access camera. Please ensure permissions are granted.');
+                }
+            };
+
+            const takePicture = () => {
+                if (videoFeed && canvasCapture) {
+                    const context = canvasCapture.getContext('2d');
+                    
+                    canvasCapture.width = videoFeed.videoWidth;
+                    canvasCapture.height = videoFeed.videoHeight;
+                    context.drawImage(videoFeed, 0, 0, canvasCapture.width, canvasCapture.height);
+                    
+                    canvasCapture.toBlob((blob) => {
+                        const file = new File([blob], 'captured_image.jpg', { type: 'image/jpeg' });
+                        handleImageUpload(file);
+                    }, 'image/jpeg');
+                    
+                    // Stop camera
+                    const stream = videoFeed.srcObject;
+                    if (stream) {
+                        const tracks = stream.getTracks();
+                        tracks.forEach(track => track.stop());
+                        videoFeed.srcObject = null; // Clear stream
+                        videoFeed.style.display = 'none';
+                        capturePhotoBtn.classList.add('hidden');
+                        uploadImageBtn.classList.remove('hidden'); // Show upload button again
+                        useCameraBtn.classList.remove('hidden'); // Show use camera button again
+                    }
+                }
+            };
+
+            const handleFileSelect = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    handleImageUpload(file);
+                }
+            };
+
+            const handleImageUpload = async (file) => {
+                if (!file) return;
+                
+                setLoadingState(true);
+                analysisResultsDisplay.classList.add('hidden'); // Hide previous results
+
+                // Mocking API call to Flask backend
+                // In a real scenario, you would send `formData` to your Flask endpoint
+                const formData = new FormData();
+                formData.append('file', file);
+                // Removed appending location data
+                // formData.append('latitude', location.latitude);
+                // formData.append('longitude', location.longitude);
+                // let endpoint = activeTab === 'soil' ? 'http://localhost:8000/analyze/soil' : 'http://localhost:8000/analyze/disease';
+                // const response = await fetch(endpoint, { method: 'POST', body: formData });
+                // const result = await response.json();
+
+                // Mock data for demonstration
+                let mockResult;
+                if (activeTab === 'soil') {
+                    mockResult = {
+                        soil_analysis: {
+                            soil_type: 'Loamy',
+                            fertility_score: 0.85,
+                            ph_level: 6.8,
+                            organic_matter: 'High'
+                        },
+                        weather: {
+                            temperature: 28,
+                            humidity: 70,
+                            rainfall: 15,
+                            season: 'Monsoon'
+                        },
+                        crop_recommendations: [
+                            { name: 'Rice', estimated_yield: 'High', water_requirement: 'High', fertilizer_requirement: 'Moderate NPK', sustainable_practices: 'Crop rotation, organic mulching.' },
+                            { name: 'Wheat', estimated_yield: 'Medium', water_requirement: 'Moderate', fertilizer_requirement: 'Balanced NPK', sustainable_practices: 'No-till farming, cover crops.' },
+                            { name: 'Corn', estimated_yield: 'High', water_requirement: 'Moderate-High', fertilizer_requirement: 'High Nitrogen', sustainable_practices: 'Intercropping, precision fertilization.' }
+                        ]
+                    };
+                } else { // activeTab === 'disease'
+                    mockResult = {
+                        disease_detection: {
+                            disease_name: 'Early Blight',
+                            confidence: 0.92,
+                            crop_type: 'Tomato'
+                        },
+                        disease_info: {
+                            symptoms: 'Dark spots on older leaves, concentric rings, yellowing.',
+                            severity_level: 'Moderate'
+                        },
+                        treatment_recommendations: {
+                            organic_treatment: 'Remove infected leaves, apply neem oil or copper-based fungicides, ensure good air circulation.',
+                            chemical_treatment: 'Apply fungicides containing chlorothalonil or mancozeb as per label instructions.',
+                            immediate_action: 'Isolate affected plants, improve drainage, avoid overhead watering.'
+                        }
+                    };
+                }
+
+                // Simulate network delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                analysisResult = mockResult;
+                renderAnalysisResults();
+                setLoadingState(false);
+                
+                // Reload analytics after analysis
+                await loadAnalytics();
+                if (activeTab === 'disease') {
+                    await loadDiseaseMap();
+                }
+            };
+
+            const handleVoiceRecording = () => {
+                voiceRecording = !voiceRecording;
+                if (voiceRecording) {
+                    voiceRecordingBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    voiceRecordingBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                    voiceRecordingBtn.innerHTML = '<i class="fas fa-stop-circle mr-2"></i> Stop Recording';
+                    showMockAlert('Voice recording started. Please speak your query.');
+                    setTimeout(() => {
+                        voiceRecording = false;
+                        voiceRecordingBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                        voiceRecordingBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        voiceRecordingBtn.innerHTML = '<i class="fas fa-microphone mr-2"></i> Start Voice Query';
+                        showMockAlert('Voice processing complete: Based on your query, I recommend checking soil pH and using organic fertilizers.');
+                    }, 5000); // Simulate recording time
+                } else {
+                    // Logic to stop recording and process audio
+                }
+            };
+
+            // --- Rendering Functions ---
+            const renderSoilAnalysisResults = (result) => {
+                let html = `
+                    <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                        <h3 class="text-xl font-bold mb-4 flex items-center">
+                            <i class="fas fa-flask mr-2 text-green-600"></i>
+                            Soil Analysis Results
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-800 mb-2">Soil Properties</h4>
+                                <div class="space-y-2 text-sm">
+                                    <p><strong>Type:</strong> ${result.soil_analysis.soil_type}</p>
+                                    <p><strong>Fertility Score:</strong> ${(result.soil_analysis.fertility_score * 100).toFixed(1)}%</p>
+                                    <p><strong>pH Level:</strong> ${result.soil_analysis.ph_level}</p>
+                                    <p><strong>Organic Matter:</strong> ${result.soil_analysis.organic_matter}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
+                                    <i class="fas fa-sun mr-1"></i>
+                                    Weather Conditions
+                                </h4>
+                                <div class="space-y-2 text-sm">
+                                    <p><strong>Temperature:</strong> ${result.weather.temperature}°C</p>
+                                    <p><strong>Humidity:</strong> ${result.weather.humidity}%</p>
+                                    <p><strong>Rainfall:</strong> ${result.weather.rainfall}mm</p>
+                                    <p><strong>Season:</strong> ${result.weather.season}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6">
+                            <h4 class="font-semibold mb-3 flex items-center">
+                                <i class="fas fa-chart-line mr-2 text-purple-600"></i>
+                                Crop Recommendations
+                            </h4>
+                            <div class="grid gap-4">
+                                ${result.crop_recommendations.map(crop => `
+                                    <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h5 class="font-semibold text-lg">${crop.name}</h5>
+                                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                                                ${crop.estimated_yield}
+                                            </span>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p><strong>Water Requirement:</strong> ${crop.water_requirement}</p>
+                                                <p><strong>Fertilizer:</strong> ${crop.fertilizer_requirement}</p>
+                                            </div>
+                                            <div>
+                                                <p><strong>Sustainable Practices:</strong></p>
+                                                <p class="text-gray-600">${crop.sustainable_practices}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                analysisResultsDisplay.innerHTML = html;
+                analysisResultsDisplay.classList.remove('hidden');
+            };
+
+            const renderDiseaseAnalysisResults = (result) => {
+                let html = `
+                    <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                        <h3 class="text-xl font-bold mb-4 flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-2 text-red-600"></i>
+                            Disease Detection Results
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-red-800 mb-2">Detection Results</h4>
+                                <div class="space-y-2">
+                                    <p><strong>Disease:</strong> ${result.disease_detection.disease_name}</p>
+                                    <p><strong>Confidence:</strong> ${(result.disease_detection.confidence * 100).toFixed(1)}%</p>
+                                    <p><strong>Crop Type:</strong> ${result.disease_detection.crop_type}</p>
+                                    <div class="mt-2">
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                class="bg-red-600 h-2 rounded-full" 
+                                                style="width: ${result.disease_detection.confidence * 100}%"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${result.disease_info ? `
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-yellow-800 mb-2">Disease Information</h4>
+                                <div class="space-y-2 text-sm">
+                                    <p><strong>Symptoms:</strong> ${result.disease_info.symptoms}</p>
+                                    <p><strong>Severity:</strong> ${result.disease_info.severity_level}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="mt-6">
+                            <h4 class="font-semibold mb-3 flex items-center">
+                                <i class="fas fa-check-circle mr-2 text-green-600"></i>
+                                Treatment Recommendations
+                            </h4>
+                            <div class="grid gap-4">
+                                <div class="border rounded-lg p-4 bg-green-50">
+                                    <h5 class="font-semibold text-green-800 mb-2">Organic Treatment (Recommended)</h5>
+                                    <p class="text-sm">${result.treatment_recommendations.organic_treatment}</p>
+                                </div>
+                                <div class="border rounded-lg p-4 bg-blue-50">
+                                    <h5 class="font-semibold text-blue-800 mb-2">Chemical Treatment</h5>
+                                    <p class="text-sm">${result.treatment_recommendations.chemical_treatment}</p>
+                                </div>
+                                <div class="border rounded-lg p-4 bg-orange-50">
+                                    <h5 class="font-semibold text-orange-800 mb-2">Immediate Action</h5>
+                                    <p class="text-sm">${result.treatment_recommendations.immediate_action}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                analysisResultsDisplay.innerHTML = html;
+                analysisResultsDisplay.classList.remove('hidden');
+            };
+
+            const renderAnalysisResults = () => {
+                if (analysisResult) {
+                    if (activeTab === 'soil') {
+                        renderSoilAnalysisResults(analysisResult);
+                    } else if (activeTab === 'disease') {
+                        renderDiseaseAnalysisResults(analysisResult);
+                    }
+                } else {
+                    analysisResultsDisplay.classList.add('hidden');
+                    analysisResultsDisplay.innerHTML = '';
+                }
+            };
+
+            const renderAnalyticsDashboard = () => {
+                if (analytics) {
+                    analyticsCountsDiv.innerHTML = `
+                        <div class="bg-blue-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-blue-600">
+                                ${analytics.analysis_counts.soil_analysis || 0}
+                            </div>
+                            <div class="text-sm text-blue-800">Soil Analyses</div>
+                        </div>
+                        
+                        <div class="bg-green-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-green-600">
+                                ${analytics.analysis_counts.disease_analysis || 0}
+                            </div>
+                            <div class="text-sm text-green-800">Disease Detections</div>
+                        </div>
+                        
+                        <div class="bg-purple-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-purple-600">
+                                ${analytics.analysis_counts.recent_activities || 0}
+                            </div>
+                            <div class="text-sm text-purple-800">Recent Activities</div>
+                        </div>
+                    `;
+
+                    if (analytics.recent_activities.length > 0) {
+                        recentActivitiesList.innerHTML = analytics.recent_activities.slice(0, 5).map(activity => `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center">
+                                    ${activity.type === 'soil_analysis' ? `
+                                        <i class="fas fa-seedling mr-2 text-green-600 text-sm"></i>
+                                    ` : `
+                                        <i class="fas fa-exclamation-triangle mr-2 text-red-600 text-sm"></i>
+                                    `}
+                                    <span class="capitalize">${activity.type.replace('_', ' ')}</span>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    ${activity.location !== 'unknown' ? `
+                                        <span class="flex items-center">
+                                            <i class="fas fa-map-marker-alt mr-1 text-xs"></i>
+                                            ${activity.location}
+                                        </span>
+                                    ` : `
+                                        <span>Location unavailable</span>
+                                    `}
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        recentActivitiesList.innerHTML = '<p class="text-gray-500">No recent activities to display.</p>';
+                    }
+                } else {
+                    analyticsCountsDiv.innerHTML = '<p class="text-gray-500">Loading analytics...</p>';
+                    recentActivitiesList.innerHTML = '';
+                }
+            };
+
+            const renderDiseaseMap = () => {
+                if (diseaseMap && diseaseMap.disease_outbreaks.length > 0) {
+                    diseaseMapSection.classList.remove('hidden');
+                    diseaseOutbreaksList.innerHTML = diseaseMap.disease_outbreaks.slice(0, 10).map(outbreak => `
+                        <div class="border rounded-lg p-4 hover:bg-red-50 transition-colors">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h5 class="font-semibold text-red-800">${outbreak.disease}</h5>
+                                    <p class="text-sm text-gray-600">Crop: ${outbreak.crop}</p>
+                                    <p class="text-sm text-gray-600 flex items-center">
+                                        <i class="fas fa-map-marker-alt mr-1 text-xs"></i>
+                                        ${outbreak.location.latitude.toFixed(4)}, ${outbreak.location.longitude.toFixed(4)}
+                                    </p>
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    ${new Date(outbreak.timestamp).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    diseaseMapSection.classList.add('hidden');
+                    diseaseOutbreaksList.innerHTML = '<p class="text-gray-500">No recent disease outbreaks reported.</p>';
+                }
+            };
+
+            // --- Event Listeners ---
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    activeTab = button.id.replace('tab-', '');
+                    updateActiveTabUI();
+                    renderAnalysisResults(); // Re-render if analysis result is present on tab switch
+                });
+            });
+
+            uploadImageBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            useCameraBtn.addEventListener('click', captureFromCamera);
+            capturePhotoBtn.addEventListener('click', takePicture);
+            voiceRecordingBtn.addEventListener('click', handleVoiceRecording);
+            mockAlertCloseBtn.addEventListener('click', hideMockAlert);
+
+            // Initial app setup
+            initApp();
+        });
+    </script>
+</body>
+</html>
